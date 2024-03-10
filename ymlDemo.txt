@@ -1,0 +1,49 @@
+# Maven
+# Build your Java project and run tests with Apache Maven.
+# Add steps that analyze code, save build artifacts, deploy, and more:
+# https://docs.microsoft.com/azure/devops/pipelines/languages/java
+
+trigger:
+- main
+
+pool:
+  vmImage: ubuntu-latest
+
+stages:
+- stage: 'build'
+  jobs:
+  - job: BuildSpringBootProject
+    steps:
+    - checkout: self
+   
+    - task: Maven@3
+      inputs:
+       mavenPomFile: 'studentinfo/pom.xml'
+       mavenOptions: '-Xmx3072m'
+       javaHomeOption: 'JDKVersion'
+       jdkVersionOption: '1.8'
+       jdkArchitectureOption: 'x64'
+       publishJUnitResults: true
+       testResultsFiles: '**/surefire-reports/TEST-*.xml'
+       goals: 'package'  
+    - task: PublishBuildArtifacts@1
+      inputs:
+       PathtoPublish: '$(System.DefaultWorkingDirectory)/studentinfo/target'
+       ArtifactName: 'studentinfoApp'
+
+- stage: DeployToDev
+  jobs:  
+  - deployment: DeployToAzureVM
+    displayName: 'deploy to azure VM'
+    environment: 'Studentservice_DEV'
+    strategy:
+     runOnce:
+      deploy:
+        steps:
+        - checkout: self
+        - task: AzureCLI@2
+          inputs:
+           azureSubscription: 'pipelinetovm'
+           scriptType: bash
+           inlineScript: java -jar $(System.DefaultWorkingDirectory)/studentinfo/target/*.jar
+          
